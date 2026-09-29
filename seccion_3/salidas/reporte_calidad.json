@@ -1,0 +1,150 @@
+{
+    "resumen": {
+        "fecha_ejecucion": "2026-09-30",
+        "total_registros": 1020,
+        "registros_validos": 850,
+        "registros_rechazados": 170,
+        "total_incidencias": 180
+    },
+    "score_por_dimension": {
+        "Completitud": {
+            "score_pct": 96.08,
+            "registros_sin_falla": 980,
+            "registros_con_falla": 40
+        },
+        "Validez": {
+            "score_pct": 93.14,
+            "registros_sin_falla": 950,
+            "registros_con_falla": 70
+        },
+        "Unicidad": {
+            "score_pct": 96.08,
+            "registros_sin_falla": 980,
+            "registros_con_falla": 40
+        },
+        "Consistencia": {
+            "score_pct": 99.02,
+            "registros_sin_falla": 1010,
+            "registros_con_falla": 10
+        },
+        "Oportunidad": {
+            "score_pct": 98.04,
+            "registros_sin_falla": 1000,
+            "registros_con_falla": 20
+        }
+    },
+    "rechazados_por_regla": [
+        {
+            "codigo_regla": "COM_001",
+            "dimension": "Completitud",
+            "variable": "id_cliente",
+            "descripcion": "Campo obligatorio ausente",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "COM_002",
+            "dimension": "Completitud",
+            "variable": "periodo",
+            "descripcion": "Campo obligatorio ausente",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "COM_003",
+            "dimension": "Completitud",
+            "variable": "valor_contrato",
+            "descripcion": "Campo obligatorio ausente",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "COM_004",
+            "dimension": "Completitud",
+            "variable": "trabajadores_activos",
+            "descripcion": "Campo obligatorio ausente",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "CON_001",
+            "dimension": "Consistencia",
+            "variable": "valor_contrato + trabajadores_activos",
+            "descripcion": "valor_contrato > 0 requiere trabajadores_activos > 0",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "OPO_001",
+            "dimension": "Oportunidad",
+            "variable": "periodo",
+            "descripcion": "Periodo posterior a la fecha de ejecución",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "OPO_002",
+            "dimension": "Oportunidad",
+            "variable": "periodo",
+            "descripcion": "Periodo con antigüedad superior a 60 días",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "UNI_001",
+            "dimension": "Unicidad",
+            "variable": "id_cliente + periodo",
+            "descripcion": "Duplicado exacto para la combinación id_cliente + periodo",
+            "registros_rechazados": 20
+        },
+        {
+            "codigo_regla": "UNI_002",
+            "dimension": "Unicidad",
+            "variable": "id_cliente + periodo",
+            "descripcion": "Llave id_cliente + periodo duplicada con diferencias en otros campos",
+            "registros_rechazados": 20
+        },
+        {
+            "codigo_regla": "VAL_001",
+            "dimension": "Validez",
+            "variable": "id_cliente",
+            "descripcion": "El identificador no cumple el formato CLI-<entero positivo>",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "VAL_002",
+            "dimension": "Validez",
+            "variable": "periodo",
+            "descripcion": "La fecha no existe en el calendario",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "VAL_003",
+            "dimension": "Validez",
+            "variable": "periodo",
+            "descripcion": "El valor no puede interpretarse como fecha",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "VAL_004",
+            "dimension": "Validez",
+            "variable": "valor_contrato",
+            "descripcion": "El valor del contrato no puede ser negativo",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "VAL_005",
+            "dimension": "Validez",
+            "variable": "valor_contrato",
+            "descripcion": "El valor por trabajador supera el límite de plausibilidad",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "VAL_006",
+            "dimension": "Validez",
+            "variable": "trabajadores_activos",
+            "descripcion": "El número de trabajadores no puede ser negativo",
+            "registros_rechazados": 10
+        },
+        {
+            "codigo_regla": "VAL_007",
+            "dimension": "Validez",
+            "variable": "trabajadores_activos",
+            "descripcion": "El número de trabajadores debe ser entero",
+            "registros_rechazados": 10
+        }
+    ]
+}
