@@ -2,6 +2,38 @@
 
 ## Ejercicio 3.1 — Validación de calidad del dato
 
+### Ejecución rápida
+
+La solución está preparada para ejecutarse de extremo a extremo sin configuración adicional, conexión a bases de datos ni archivos de entrada externos. La carga sintética de prueba se genera automáticamente durante la ejecución.
+
+Desde la raíz del repositorio:
+
+```bash
+python -m pip install -r requirements.txt
+python seccion_3/main.py
+```
+
+Al finalizar, el proceso muestra en consola un resumen similar a:
+
+```text
+=== PROCESO FINALIZADO ===
+Registros procesados: 1020
+Registros válidos: 850
+Registros rechazados: 170
+Incidencias detectadas: 180
+```
+
+Los resultados se generan automáticamente en:
+
+```text
+seccion_3/salidas/
+├── reporte_calidad.json
+├── registros_validos.parquet
+└── registros_rechazados.xlsx
+```
+
+Una vez instaladas las dependencias, la ejecución del pipeline toma solo unos segundos. El resto del README documenta las reglas de calidad, decisiones metodológicas, arquitectura y criterios utilizados en la solución.
+
 ### 1. Objetivo
 
 Desarrollar un proceso automatizado en Python para validar la calidad de un archivo de facturación antes de su ingreso al pipeline de datos.
