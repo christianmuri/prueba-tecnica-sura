@@ -1,3 +1,7 @@
+from datetime import date
+from pathlib import Path
+import sys
+
 from generacion_datos import (
     generar_datos_base,
     introducir_variaciones_estandarizables,
@@ -24,8 +28,19 @@ from exportacion_resultados import (
 
 def main():
 
+    # Directorio donde se encuentra este archivo
+    directorio_base = Path(__file__).resolve().parent
+
+    # Directorio de salida independiente del punto de ejecución
+    directorio_salida = directorio_base / "salidas"
+
+    # Fecha de referencia única para toda la ejecución
+    fecha_ejecucion = date.today()
+
     # 1. Generar población base
-    df_base = generar_datos_base()
+    df_base = generar_datos_base(
+        fecha_ejecucion=fecha_ejecucion
+    )
 
     # 2. Introducir variaciones estandarizables
     (
@@ -43,7 +58,8 @@ def main():
     ) = introducir_errores_calidad(
         df=df_prueba,
         df_base=df_base,
-        log_variaciones=log_variaciones
+        log_variaciones=log_variaciones,
+        fecha_ejecucion=fecha_ejecucion
     )
 
     # 4. Introducir problemas de Unicidad
@@ -89,7 +105,8 @@ def main():
 
     incidencias_oportunidad = (
         validar_oportunidad(
-            df_preparado
+            df_preparado,
+            fecha_ejecucion=fecha_ejecucion
         )
     )
 
@@ -125,7 +142,8 @@ def main():
         df=df_preparado,
         df_validos=df_validos,
         df_rechazados=df_rechazados,
-        detalle_incidencias=detalle_incidencias
+        detalle_incidencias=detalle_incidencias,
+        fecha_ejecucion=fecha_ejecucion
     )
 
     # 10. Exportar resultados
@@ -134,7 +152,7 @@ def main():
         df_validos=df_validos,
         df_rechazados=df_rechazados,
         detalle_incidencias=detalle_incidencias,
-        directorio_salida="seccion_3/salidas"
+        directorio_salida=str(directorio_salida)
     )
 
     # 11. Resumen final
@@ -162,6 +180,17 @@ def main():
         f"{len(detalle_incidencias)}"
     )
 
-
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+
+    except Exception as error:
+        print(
+            "\n=== ERROR EN LA EJECUCIÓN ==="
+        )
+
+        print(
+            f"{type(error).__name__}: {error}"
+        )
+
+        sys.exit(1)

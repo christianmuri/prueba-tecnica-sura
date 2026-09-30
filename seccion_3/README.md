@@ -22,7 +22,7 @@ Adicionalmente, el proceso genera un reporte consolidado de calidad y exporta lo
 
 La solución desarrollada para este ejercicio contempla:
 
-- Generación de un archivo de prueba con más de 1.000 registros de facturación, incluyendo problemas de calidad introducidos de forma intencional.
+- Generación interna de una carga sintética de prueba con más de 1.000 registros de facturación, incluyendo problemas de calidad introducidos de forma intencional.
 - Lectura y preparación de la información para su validación.
 - Evaluación de los registros mediante las dimensiones de completitud, validez, unicidad, consistencia y oportunidad.
 - Identificación de las reglas de calidad incumplidas por cada registro.
@@ -51,7 +51,7 @@ Los valores originales se conservan para mantener trazabilidad sobre la informac
 
 ### 4. Contrato de datos
 
-El archivo de entrada simula una carga de información de facturación y contiene las variables necesarias para ejecutar las reglas de calidad definidas en el ejercicio.
+La carga sintética de entrada simula información de facturación y contiene las variables necesarias para ejecutar las reglas de calidad definidas en el ejercicio.
 
 | Campo | Descripción | Tipo esperado |
 |---|---|---|
@@ -92,18 +92,31 @@ Los valores nulos se rechazan por **Completitud**.
 Fecha correspondiente al período informado en el registro.
 
 - **Tipo esperado:** fecha.
-- **Formato esperado de entrada:** `DD/MM/YYYY`.
+- **Formato preferido de entrada:** `DD/MM/YYYY`.
 - **Formato estándar interno:** `YYYY-MM-DD`.
-- **Ejemplo de entrada válida:** `29/09/2026`.
 - **Campo obligatorio:** sí.
 
-Cuando el valor recibido corresponde de manera inequívoca al formato `DD/MM/YYYY`, el proceso lo convierte al formato estándar `YYYY-MM-DD` para su procesamiento interno.
+El formato preferido para la carga es `DD/MM/YYYY`. Sin embargo, el proceso admite adicionalmente representaciones conocidas que puedan interpretarse de forma determinística y sin ambigüedad.
 
-No se interpretan formatos ambiguos ni se corrigen fechas inexistentes. Por ejemplo, valores como `31/02/2026` se rechazan por **Validez**.
+Los formatos reconocidos son:
+
+- `DD/MM/YYYY`
+- `YYYY-MM-DD`
+- `DD-MM-YYYY`
+
+Por ejemplo:
+
+- `29/09/2026`
+- `2026-09-29`
+- `29-09-2026`
+
+representan la misma fecha y se estandarizan internamente antes de ejecutar las reglas de calidad.
+
+No se interpretan formatos no reconocidos ni se corrigen fechas inexistentes. Por ejemplo, valores como `31/02/2026` se rechazan por **Validez**.
 
 Los valores nulos se rechazan por **Completitud**.
 
-Una vez validada y estandarizada la fecha, se evalúa la dimensión de **Oportunidad**. Para ello, la `fecha_ejecucion` corresponde a la fecha del sistema en el momento en que se ejecuta el proceso.
+Una vez validada y estandarizada la fecha, se evalúa la dimensión de **Oportunidad**. Para ello, la `fecha_ejecucion` corresponde a una única fecha de referencia definida al inicio de la ejecución del proceso.
 
 El período debe cumplir la siguiente condición:
 
@@ -253,22 +266,30 @@ Valores como `CLI-0`, `CLI--5`, `CLI-12A5` o `EMP-125` se rechazan por **Validez
 
 ##### `periodo`
 
-El formato esperado de entrada es:
+El período debe corresponder a una fecha calendario existente y debe poder interpretarse de forma determinística.
+
+El formato preferido de entrada es:
 
 `DD/MM/YYYY`
 
-El valor debe corresponder a una fecha calendario existente y debe poder interpretarse de forma inequívoca.
+Sin embargo, el proceso reconoce también los siguientes formatos:
+
+- `DD/MM/YYYY`
+- `YYYY-MM-DD`
+- `DD-MM-YYYY`
+
+Cuando cualquiera de estas representaciones corresponde a una fecha válida, el valor se estandariza internamente a `YYYY-MM-DD`.
 
 Ejemplos:
 
 - `29/09/2026` → válido.
-- `31/02/2026` → inválido.
-- `2026/09/29` → inválido por no cumplir el formato definido.
-- `texto` → inválido.
+- `2026-09-29` → válido y estandarizable.
+- `29-09-2026` → válido y estandarizable.
+- `31/02/2026` → inválido porque la fecha no existe.
+- `2026/09/29` → inválido porque el formato no está reconocido.
+- `texto` → inválido porque no puede interpretarse como fecha.
 
-Las fechas válidas se estandarizan internamente al formato `YYYY-MM-DD`.
-
-La vigencia temporal del período no se evalúa en esta dimensión, sino posteriormente mediante la regla de **Oportunidad**.
+La vigencia temporal del período no se evalúa en esta dimensión. Una fecha puede ser válida desde el punto de vista de formato y calendario, pero posteriormente ser rechazada por **Oportunidad** si es futura o supera los 60 días de antigüedad permitidos.
 
 ##### `valor_contrato`
 
@@ -285,39 +306,79 @@ Por ejemplo:
 
 pueden estandarizarse a una representación numérica común.
 
-Las representaciones ambiguas o no numéricas se rechazan por **Validez**.
+Se rechazan por **Validez** los siguientes casos:
 
-Además, se aplica un control de plausibilidad para identificar valores excepcionalmente altos dentro de la simulación.
+- valores negativos;
+- valores presentes que no puedan interpretarse como numéricos;
+- representaciones ambiguas cuya interpretación requiera inferir información.
 
-El límite superior se calcula a partir de los valores de `valor_contrato` de los 1.000 registros válidos utilizados como población de referencia, antes de introducir los errores intencionales:
+Por ejemplo:
 
-`limite_superior = media(valor_contrato) + 3 * desviacion_estandar(valor_contrato)`
+- `-500000` → inválido por ser negativo;
+- `"valor_desconocido"` → inválido porque no puede interpretarse como numérico;
+- una representación monetaria ambigua → inválida si no puede interpretarse de forma determinística.
 
-Posteriormente, algunos registros son modificados intencionalmente con valores superiores a este límite para comprobar el funcionamiento de la regla de validación.
+Los valores nulos no se consideran un problema de Validez, sino de **Completitud**.
 
-El umbral se calcula antes de contaminar los datos, evitando que los valores extremos introducidos artificialmente incrementen la media y la desviación estándar y desplacen el límite de detección.
+Además, se aplica un control de plausibilidad para identificar valores cuya magnitud resulte inconsistente con el número de trabajadores asociados al contrato.
 
-Este criterio se utiliza como supuesto estadístico para la simulación y no implica que, en un entorno productivo, todo valor superior a tres desviaciones estándar deba considerarse incorrecto. En un escenario real, el rango esperado debería definirse utilizando información histórica, reglas de negocio y, cuando corresponda, métodos estadísticos robustos o límites diferenciados según las características del cliente.
+Cuando `trabajadores_activos > 0`, se calcula:
+
+`valor_por_trabajador = valor_contrato / trabajadores_activos`
+
+El límite superior de plausibilidad se obtiene a partir de los 1.000 registros válidos utilizados como población de referencia, antes de introducir los errores intencionales:
+
+`limite_superior = media(valor_por_trabajador) + 3 * desviacion_estandar(valor_por_trabajador)`
+
+Posteriormente, algunos registros son modificados intencionalmente para generar valores por trabajador superiores a este límite y comprobar el funcionamiento de la regla de validación.
+
+Este enfoque evita clasificar como inválido un contrato únicamente por tener un valor absoluto elevado, ya que un monto mayor puede ser coherente cuando está asociado a un mayor número de trabajadores.
+
+La regla busca representar situaciones en las que el valor conserva un formato numérico correcto, pero presenta una magnitud desproporcionada frente al número de trabajadores, por ejemplo debido a un error de digitación.
+
+El umbral se calcula antes de contaminar los datos, evitando que los valores extremos introducidos artificialmente modifiquen la media y la desviación estándar utilizadas como referencia.
+
+Esta regla se evalúa únicamente cuando:
+
+- `valor_contrato` puede interpretarse como numérico;
+- `valor_contrato >= 0`;
+- `trabajadores_activos` puede interpretarse correctamente;
+- `trabajadores_activos` es un entero mayor que `0`.
+
+Cuando `trabajadores_activos = 0`, no se calcula `valor_por_trabajador`. La relación entre ambas variables se evalúa mediante la dimensión de **Consistencia**.
+
+Este criterio corresponde a un supuesto estadístico utilizado para la simulación y no representa una regla real de negocio de SURA. En un entorno productivo, los límites de plausibilidad deberían definirse a partir de información histórica, reglas de negocio y, cuando corresponda, métodos estadísticos robustos o rangos diferenciados según las características del cliente.
 
 ##### `trabajadores_activos`
 
 Debe corresponder a un número entero mayor o igual a cero.
+
+Las representaciones textuales de enteros pueden estandarizarse cuando su interpretación sea determinística.
 
 Ejemplos válidos:
 
 - `0`
 - `15`
 - `"25"` → `25`
+- `" 25 "` → `25`
 - `"005"` → `5`
 
-Se rechazan por **Validez**:
+Se rechazan por **Validez** los siguientes casos:
 
 - valores negativos;
 - valores decimales;
-- valores no numéricos;
-- representaciones que requieran inferir información para ser interpretadas.
+- valores presentes que no puedan interpretarse como numéricos;
+- representaciones cuya interpretación requiera inferir información.
 
-Un valor de `0` es válido individualmente. Su relación con `valor_contrato` se evalúa posteriormente mediante la regla de **Consistencia**.
+Por ejemplo:
+
+- `-5` → inválido por ser negativo;
+- `10.5` → inválido porque representa un conteo decimal;
+- `"veinticinco"` → inválido porque no puede interpretarse mediante las reglas numéricas definidas.
+
+Un valor de `0` es válido individualmente. Su relación con `valor_contrato` se evalúa posteriormente mediante la dimensión de **Consistencia**.
+
+Los valores nulos no se consideran un problema de Validez, sino de **Completitud**.
 
 ##### Registro de incumplimientos
 
@@ -445,9 +506,16 @@ El archivo `registros_rechazados.xlsx` contiene dos hojas con diferentes niveles
 
 ##### Hoja `registros_rechazados`
 
-Contiene una fila por registro rechazado y conserva los valores recibidos en la carga junto con su identificador técnico `id_registro`.
+Contiene una fila por cada registro rechazado y conserva los valores originales recibidos en la carga junto con su identificador técnico `id_registro`.
 
-Esta hoja permite conocer qué registros no superaron el control de calidad y conservar la información original para su posterior revisión.
+Adicionalmente, incorpora dos campos de resumen:
+
+- `n_incumplimientos`: número total de reglas de calidad incumplidas por el registro.
+- `n_dimensiones_fallidas`: número de dimensiones de calidad diferentes en las que el registro presenta al menos un incumplimiento.
+
+Por ejemplo, un registro puede presentar dos incumplimientos dentro de una misma dimensión o incumplimientos correspondientes a dimensiones diferentes. Estos campos permiten distinguir ambos escenarios sin perder el detalle individual de las reglas incumplidas.
+
+La hoja permite identificar rápidamente qué registros no superaron el control de calidad y conservar la información original para su posterior revisión.
 
 ##### Hoja `detalle_rechazos`
 
@@ -469,8 +537,8 @@ Ejemplo:
 | id_registro | criterio | variable | codigo_regla | descripcion | valor_original |
 |---:|---|---|---|---|---|
 | `250` | Completitud | `id_cliente` | `COM_001` | Campo obligatorio ausente | `NULL` |
-| `250` | Validez | `periodo` | `VAL_002` | Fecha inexistente | `31/02/2026` |
-| `250` | Validez | `valor_contrato` | `VAL_003` | Valor negativo | `-500000` |
+| `250` | Validez | `periodo` | `VAL_002` | La fecha no existe en el calendario | `31/02/2026` |
+| `250` | Validez | `valor_contrato` | `VAL_004` | El valor del contrato no puede ser negativo | `-500000` |
 
 Este diseño evita almacenar múltiples criterios o motivos concatenados en una misma celda y permite analizar posteriormente la calidad de los datos mediante herramientas de BI.
 
@@ -519,7 +587,15 @@ Adicionalmente, se incorporan algunas variaciones de formato que son estandariza
 
 La simulación parte de 1.000 registros que cumplen inicialmente todas las reglas de calidad definidas.
 
-Se utiliza una semilla fija (`RANDOM_SEED = 42`) para garantizar la reproducibilidad de la generación de datos y de la posterior selección de registros que serán modificados.
+Se utiliza una semilla fija (`RANDOM_SEED = 42`) para garantizar la reproducibilidad de la generación de la población base de 1.000 registros válidos.
+
+La introducción de variaciones y errores también se realiza de forma reproducible mediante semillas fijas. En la implementación se utiliza:
+
+- `42` para la generación de la población base y la selección de variaciones estandarizables;
+- `43` para la introducción controlada de errores de calidad;
+- `44` para la generación de los casos de duplicidad utilizados en la validación de Unicidad.
+
+De esta forma, una misma ejecución reproduce tanto la población sintética como los casos de prueba incorporados durante la simulación.
 
 ##### Clientes
 
@@ -559,9 +635,11 @@ Cuando un mismo cliente aparece en diferentes períodos, su número de trabajado
 
 El valor del contrato se genera en función del número de trabajadores activos, de manera que exista una relación razonable entre ambas variables.
 
-Para cada registro se genera un valor unitario por trabajador alrededor de $40.000. Este valor corresponde únicamente a un parámetro de simulación y no representa una tarifa real de negocio.
+Para cada registro se genera un valor unitario por trabajador dentro del intervalo de simulación:
 
-Para introducir variabilidad, el valor unitario se genera dentro de un intervalo definido alrededor de dicho valor de referencia.
+`30.000 <= valor_unitario <= 50.000`
+
+El valor medio esperado del intervalo es aproximadamente `40.000` por trabajador. Estos valores corresponden únicamente a parámetros utilizados para construir los datos sintéticos y no representan tarifas reales de negocio de SURA.
 
 Posteriormente:
 
@@ -573,7 +651,9 @@ De esta manera, los contratos de mayor valor pueden estar asociados naturalmente
 
 Una vez generados los 1.000 registros válidos de referencia, se introducen de forma controlada diferentes variaciones y problemas de calidad.
 
-La selección de los registros que serán modificados se realiza de forma pseudoaleatoria utilizando la semilla definida para la simulación. Las modificaciones no alteran el orden original de los registros ni su `id_registro`.
+La selección de los registros que serán modificados se realiza de forma pseudoaleatoria utilizando semillas fijas según la etapa de la simulación. Esto permite reproducir los mismos casos de prueba en ejecuciones posteriores.
+
+Las modificaciones realizadas sobre los registros existentes no alteran su orden original ni su `id_registro`. Los registros adicionales generados para probar Unicidad se incorporan al final de la carga y reciben nuevos identificadores técnicos consecutivos.
 
 Se distinguen dos tipos de modificaciones:
 
@@ -661,3 +741,191 @@ Se definen los siguientes casos:
 De esta forma, un mismo registro puede generar incumplimientos correspondientes a diferentes dimensiones de calidad.
 
 La existencia de estos solapamientos implica que la cantidad total de incidencias detectadas no necesariamente coincide con la cantidad de registros rechazados.
+
+### 8. Arquitectura de la solución
+
+La implementación se divide en módulos con responsabilidades separadas para facilitar la lectura, mantenimiento y ejecución del proceso.
+
+La estructura de la Sección 3 es:
+
+```text
+Prueba_tecnica_SURA/
+├── README.md
+├── requirements.txt
+├── seccion_3/
+│   ├── generacion_datos.py
+│   ├── validacion_calidad.py
+│   ├── exportacion_resultados.py
+│   ├── main.py
+│   ├── README.md
+│   └── salidas/
+│       ├── reporte_calidad.json
+│       ├── registros_validos.parquet
+│       └── registros_rechazados.xlsx
+```
+
+#### `generacion_datos.py`
+
+Contiene la lógica necesaria para construir la carga sintética utilizada en la prueba.
+
+Sus principales responsabilidades son:
+
+- generar una población base de 1.000 registros válidos;
+- introducir variaciones de formato que pueden estandarizarse;
+- introducir de forma controlada errores de Completitud, Validez, Consistencia y Oportunidad;
+- agregar los registros necesarios para probar la dimensión de Unicidad.
+
+Como resultado de este proceso se obtiene una carga final de 1.020 registros.
+
+#### `validacion_calidad.py`
+
+Contiene la lógica de preparación, estandarización y evaluación de la calidad del dato.
+
+Sus responsabilidades principales son:
+
+- conservar los valores originales recibidos;
+- generar representaciones estandarizadas para los campos evaluados;
+- ejecutar las reglas correspondientes a las cinco dimensiones de calidad;
+- consolidar las incidencias detectadas;
+- clasificar los registros en válidos y rechazados;
+- construir el reporte consolidado de calidad.
+
+El proceso de validación no utiliza los logs empleados durante la generación de los errores para decidir qué registros deben rechazarse. Las reglas se ejecutan directamente sobre la carga recibida.
+
+#### `exportacion_resultados.py`
+
+Centraliza la escritura de los resultados finales del proceso:
+
+- reporte de calidad en formato JSON;
+- registros válidos en formato Parquet;
+- registros rechazados y detalle de incidencias en formato Excel.
+
+#### `main.py`
+
+Actúa como punto único de entrada y coordina la ejecución completa del pipeline.
+
+El flujo general es:
+
+1. Generar la población base.
+2. Introducir variaciones estandarizables.
+3. Introducir errores controlados.
+4. Incorporar los casos de Unicidad.
+5. Preparar y estandarizar la información.
+6. Ejecutar las cinco dimensiones de calidad.
+7. Consolidar las incidencias y clasificar los registros.
+8. Generar el reporte y exportar los resultados.
+
+La fecha de ejecución se define una sola vez al inicio del proceso y se reutiliza en las etapas que dependen de ella, garantizando que todas las reglas temporales utilicen la misma referencia.
+
+El punto de entrada también incorpora manejo controlado de excepciones. Si ocurre un error no esperado durante la ejecución, el proceso muestra el tipo de excepción y finaliza con un código de salida distinto de cero.
+
+### 9. Instalación y ejecución
+
+#### 9.1 Requisitos
+
+La solución fue desarrollada y validada utilizando Python y las siguientes dependencias:
+
+- `numpy==2.3.4`
+- `pandas==2.3.3`
+- `pyarrow==24.0.0`
+- `openpyxl==3.1.5`
+
+Las versiones se encuentran definidas en el archivo `requirements.txt` ubicado en la raíz del repositorio.
+
+#### 9.2 Instalación de dependencias
+
+Desde la raíz del repositorio, ejecutar:
+
+```bash
+pip install -r requirements.txt
+```
+
+#### 9.3 Ejecución
+
+La Sección 3 dispone de un único punto de entrada encargado de ejecutar el flujo completo de generación, validación y exportación de resultados.
+
+Desde la raíz del repositorio:
+
+```bash
+python seccion_3/main.py
+```
+
+También puede ejecutarse ingresando primero al directorio de la sección:
+
+```bash
+cd seccion_3
+python main.py
+```
+
+En ambos casos, los archivos generados se almacenan en:
+
+```text
+seccion_3/salidas/
+```
+
+La ruta de salida se determina a partir de la ubicación de `main.py`, por lo que no depende del directorio desde el cual se ejecute el comando.
+
+#### 9.4 Archivos generados
+
+Al finalizar correctamente la ejecución se generan los siguientes archivos:
+
+```text
+salidas/
+├── reporte_calidad.json
+├── registros_validos.parquet
+└── registros_rechazados.xlsx
+```
+
+- `reporte_calidad.json`: contiene el resumen general de la ejecución, los scores por dimensión de calidad y la cantidad de registros rechazados por cada regla.
+- `registros_validos.parquet`: contiene los registros que superaron todas las reglas de calidad. Los valores estandarizables se entregan en su representación normalizada para consumo posterior.
+- `registros_rechazados.xlsx`: contiene los registros que presentan al menos un incumplimiento de calidad y conserva los valores originales recibidos para facilitar su trazabilidad y diagnóstico.
+
+El archivo `registros_rechazados.xlsx` contiene dos hojas:
+
+- `registros_rechazados`: una fila por registro rechazado, incluyendo el número total de incumplimientos y el número de dimensiones de calidad afectadas.
+- `detalle_rechazos`: una fila por cada incumplimiento detectado, indicando la dimensión, variable, código de regla, descripción y valor original asociado.
+
+Con la configuración reproducible definida para la simulación, el proceso genera una carga final de **1.020 registros** y obtiene:
+
+- **850 registros válidos**;
+- **170 registros rechazados**;
+- **180 incidencias de calidad detectadas**.
+
+La cantidad de incidencias puede ser superior a la cantidad de registros rechazados porque un mismo registro puede incumplir más de una regla o dimensión de calidad.
+
+
+### 10. Cálculo del score de calidad
+
+El reporte de calidad calcula un score independiente para cada una de las cinco dimensiones evaluadas.
+
+Para mantener una interpretación homogénea entre dimensiones, se utiliza el total de registros procesados como denominador.
+
+La fórmula utilizada es:
+
+`score_dimension = ((total_registros - registros_con_falla_dimension) / total_registros) * 100`
+
+Cada registro se contabiliza una sola vez dentro de una dimensión, aunque pueda incumplir más de una regla perteneciente a esa misma dimensión.
+
+Por ejemplo, si un registro presenta dos incumplimientos de Validez, se considera un único registro con falla para el cálculo del score de Validez, aunque ambas incidencias se conserven individualmente en `detalle_rechazos`.
+
+Con la carga reproducible de 1.020 registros utilizada en la simulación se obtienen los siguientes resultados:
+
+| Dimensión | Registros con falla | Registros sin falla | Score |
+|---|---:|---:|---:|
+| Completitud | 40 | 980 | 96,08 % |
+| Validez | 70 | 950 | 93,14 % |
+| Unicidad | 40 | 980 | 96,08 % |
+| Consistencia | 10 | 1.010 | 99,02 % |
+| Oportunidad | 20 | 1.000 | 98,04 % |
+
+Los scores permiten observar el comportamiento de cada dimensión de forma separada. No sustituyen el detalle de incidencias, ya que un mismo registro puede presentar problemas en varias dimensiones.
+
+Por esta razón, el reporte conserva simultáneamente:
+
+- el score por dimensión;
+- la cantidad de registros con y sin falla por dimensión;
+- la cantidad total de registros válidos y rechazados;
+- el número total de incidencias;
+- el detalle de registros rechazados por regla.
+
+La existencia de 180 incidencias sobre 170 registros rechazados se explica porque 10 registros presentan incumplimientos en dos dimensiones diferentes.

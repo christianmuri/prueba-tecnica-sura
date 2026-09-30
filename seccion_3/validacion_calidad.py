@@ -570,6 +570,49 @@ def validar_validez(
                 "El número de trabajadores debe ser entero"
             )
         )
+            # ========================================================
+    # VAL_008 - valor_contrato no interpretable
+    # ========================================================
+
+    mascara = (
+        df["valor_contrato"].notna()
+        &
+        df["valor_contrato_std"].isna()
+    )
+
+    for _, fila in df.loc[mascara].iterrows():
+
+        registrar_incidencia(
+            fila=fila,
+            variable="valor_contrato",
+            codigo_regla="VAL_008",
+            descripcion=(
+                "El valor del contrato no puede "
+                "interpretarse como numérico"
+            )
+        )
+
+    # ========================================================
+    # VAL_009 - trabajadores_activos no interpretable
+    # ========================================================
+
+    mascara = (
+        df["trabajadores_activos"].notna()
+        &
+        df["trabajadores_activos_std"].isna()
+    )
+
+    for _, fila in df.loc[mascara].iterrows():
+
+        registrar_incidencia(
+            fila=fila,
+            variable="trabajadores_activos",
+            codigo_regla="VAL_009",
+            descripcion=(
+                "El número de trabajadores no puede "
+                "interpretarse como numérico"
+            )
+        )
 
     return pd.DataFrame(
         incidencias,
